@@ -60,10 +60,15 @@ function postStoreData(action, payload) {
     const frame = document.querySelector(".backend-frame");
     const form = document.createElement("form");
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    let settled = false;
+    let onFrameLoad;
     const timeout = setTimeout(() => finish(new Error("The store service did not respond.")), 25000);
     function finish(error, result) {
+      if (settled) return;
+      settled = true;
       clearTimeout(timeout);
       window.removeEventListener("message", onMessage);
+      if (onFrameLoad) frame.removeEventListener("load", onFrameLoad);
       form.remove();
       if (error) reject(error);
       else if (!result?.ok) reject(new Error(result?.error || "The request could not be saved."));
@@ -74,6 +79,16 @@ function postStoreData(action, payload) {
       finish(null, event.data);
     }
     window.addEventListener("message", onMessage);
+    if (action === "placeOrder") {
+      onFrameLoad = async () => {
+        try {
+          const savedOrder = await requestStoreData("track", {id:payload.orderId,phone:payload.customer.phone1});
+          if (savedOrder.error) throw new Error(savedOrder.error);
+          finish(null, {...savedOrder,ok:true});
+        } catch (error) { finish(error); }
+      };
+      frame.addEventListener("load", onFrameLoad, {once:true});
+    }
     form.method = "post";
     form.action = GOOGLE_SCRIPT_URL;
     form.target = frame.name;
@@ -393,7 +408,8 @@ checkoutModal.addEventListener("submit", async (event) => {
   try {
     if (GOOGLE_SCRIPT_URL) {
       const confirmedItems = checkoutItems.map((item) => ({...item}));
-      const result = await postStoreData("placeOrder", {customer,items:confirmedItems.map((item) => ({productId:item.product.id,variant:item.variant,quantity:item.quantity}))});
+      const orderId = `BN-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+      const result = await postStoreData("placeOrder", {orderId,customer,items:confirmedItems.map((item) => ({productId:item.product.id,variant:item.variant,quantity:item.quantity}))});
       cart.clear();
       renderCart();
       checkoutModal.innerHTML = renderOrderConfirmation(result.orderId, customer, confirmedItems);
@@ -417,19 +433,3 @@ document.querySelector(".menu-toggle").addEventListener("click", (event) => {
   const open = nav.classList.toggle("open");
   button.setAttribute("aria-expanded", String(open));
 });
-document.querySelectorAll(".nav-link").forEach((link) => link.addEventListener("click", () => {
-  document.querySelector(".main-nav").classList.remove("open");
-  document.querySelector(".menu-toggle").setAttribute("aria-expanded", "false");
-}));
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") { closeCart(); closeProduct(); closeCheckout(); }
-  if (event.key === "/" && !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) {
-    event.preventDefault();
-    document.querySelector("#product-search").focus();
-    document.querySelector("#shop").scrollIntoView({behavior:"smooth"});
-  }
-});
-window.addEventListener("hashchange", () => {
-  const productId = location.hash.startsWith("#product/") ? location.hash.slice("#product/".length) : "";
-  const product = products.find((item) => item.id === productId);
-  if (product && !productModal.classList.contain
