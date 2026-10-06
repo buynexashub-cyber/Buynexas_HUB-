@@ -1,5 +1,5 @@
 const WHATSAPP_NUMBER = "923291504030";
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwlV_pQb72MV_T9CL6dJEHQf-ro-BsXBFFuTVyM0pbYIleFpcpVjmeBrDnoKb3HwHg2DA/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwo9BAgLRUd2mC7V05gLhOFX7nJrKFZvDuGzJsuy4hvLw5j6llpRTliEAY6vp6hQwxnGg/exec";
 
 const products = [
   {id:"linen-set",name:"The Weekend Linen Set",category:"Fashion",price:3490,oldPrice:4290,rating:"4.9",reviews:28,badge:"BESTSELLER",image:"https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=900&q=85",images:["https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=1000&q=85","https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1000&q=85"],description:"Your easy, all-day uniform. A relaxed two-piece set in a soft, breathable feel, finished with thoughtful details for slow mornings and plans that go long.",variants:["S","M","L","XL"]},
