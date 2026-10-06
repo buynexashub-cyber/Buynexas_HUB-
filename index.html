@@ -85,6 +85,8 @@
       <div><p class="eyebrow">HERE WHEN YOU NEED US</p><h2>Your order, <em>our priority.</em></h2><p>Need an order update or delivery help? Message our team with the phone number you used to place your order.</p></div>
       <a class="button button-dark" href="https://wa.me/923291504030?text=Assalam%20o%20Alaikum%20BuyNexas%20Hub%2C%20please%20help%20me%20track%20my%20order." target="_blank" rel="noopener">Track or ask on WhatsApp <span>↗</span></a>
       <form class="tracking-form" id="tracking-form"><label for="tracking-id">Order number</label><input id="tracking-id" name="orderId" placeholder="BN-XXXXXXXX" required><label for="tracking-phone">Checkout phone</label><input id="tracking-phone" name="phone" type="tel" placeholder="03XX XXXXXXX" required><button class="button button-dark">Check status</button><output id="tracking-result" aria-live="polite"></output></form>
+      <div class="customer-orders-tools"><button class="button button-secondary" id="view-my-orders" type="button" aria-expanded="false" aria-controls="my-orders-list">My orders</button><span>Your saved orders are available on this device.</span></div>
+      <div class="saved-orders hide" id="my-orders-list" aria-live="polite"></div>
     </section>
 
     <section class="help-section" id="help">
