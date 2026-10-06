@@ -1,5 +1,5 @@
 const WHATSAPP_NUMBER = "923291504030";
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxreglYvVCTiPtErxZ_grrwy5v523VH8P8ixX3zua82khHxb7WcLenReRWIVxu6LMfHBQ/exec?";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwo9BAgLRUd2mC7V05gLhOFX7nJrKFZvDuGzJsuy4hvLw5j6llpRTliEAY6vp6hQwxnGg/exec";
 
 const products = [
   {id:"linen-set",name:"The Weekend Linen Set",category:"Fashion",price:3490,oldPrice:4290,rating:"4.9",reviews:28,badge:"BESTSELLER",image:"https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=900&q=85",images:["https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=1000&q=85","https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1000&q=85"],description:"Your easy, all-day uniform. A relaxed two-piece set in a soft, breathable feel, finished with thoughtful details for slow mornings and plans that go long.",variants:["S","M","L","XL"]},
@@ -233,6 +233,13 @@ function closeCheckout() {
   if (!cartDrawer.classList.contains("open") && !productModal.classList.contains("open")) setOverlay(false);
 }
 
+function renderOrderConfirmation(orderId, customer, items) {
+  const total = items.reduce((sum, item) => sum + item.quantity * item.product.price, 0);
+  const itemRows = items.map((item) => `<div class="confirmation-item"><span>${escapeMarkup(item.product.name)} · ${escapeMarkup(item.variant)} × ${item.quantity}</span><strong>${money(item.product.price * item.quantity)}</strong></div>`).join("");
+  const address = [customer.address, customer.area, customer.city].filter(Boolean).map(escapeMarkup).join(", ");
+  return `<div class="modal-panel checkout-panel order-confirmation"><button class="modal-close" type="button" aria-label="Close confirmation">×</button><div class="confirmation-mark" aria-hidden="true">✓</div><p class="eyebrow">ORDER CONFIRMED</p><h2>Your order is confirmed.</h2><p class="confirmation-intro">Thank you, ${escapeMarkup(customer.name)}. Your order has been sent to the BuyNexas Hub team.</p><div class="confirmation-reference"><span>Order number</span><strong>${escapeMarkup(orderId)}</strong></div><h3>Order details</h3><div class="confirmation-items">${itemRows}<div class="confirmation-total"><span>Total · Cash on delivery</span><strong>${money(total)}</strong></div></div><div class="confirmation-delivery"><div><span>Phone</span><strong>${escapeMarkup(customer.phone1)}</strong></div><div><span>Delivery address</span><strong>${address}</strong></div>${customer.feedback ? `<div><span>Order note</span><strong>${escapeMarkup(customer.feedback)}</strong></div>` : ""}</div><button class="button button-dark confirmation-close" type="button">Continue shopping</button></div>`;
+}
+
 function makeWhatsAppMessage(items, customer, orderId = "") {
   const itemText = items.map((item) => `🛍️ Product: ${item.product.name} (${item.variant})\n🔗 Product Link: ${productUrl(item.product)}\n📦 Quantity: ${item.quantity}\n💰 Total: ${money(item.product.price * item.quantity)}`).join("\n\n");
   const grandTotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
@@ -363,6 +370,7 @@ productModal.addEventListener("submit", async (event) => {
 });
 checkoutModal.addEventListener("click", (event) => {
   if (event.target.closest(".modal-close")) closeCheckout();
+  if (event.target.closest(".confirmation-close")) closeCheckout();
   if (event.target.closest(".checkout-support")) {
     const supportText = encodeURIComponent("Assalam o Alaikum BuyNexas Hub, I need help with my order and want to confirm my details.");
     const supportUrl = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, "")}?text=${supportText}`;
@@ -384,14 +392,15 @@ checkoutModal.addEventListener("submit", async (event) => {
 
   try {
     if (GOOGLE_SCRIPT_URL) {
-      const result = await postStoreData("placeOrder", {customer,items:checkoutItems.map((item) => ({productId:item.product.id,variant:item.variant,quantity:item.quantity}))});
+      const confirmedItems = checkoutItems.map((item) => ({...item}));
+      const result = await postStoreData("placeOrder", {customer,items:confirmedItems.map((item) => ({productId:item.product.id,variant:item.variant,quantity:item.quantity}))});
       cart.clear();
       renderCart();
-      showToast(`Bismillah! Order ${result.orderId} has been sent to the admin team.`);
+      checkoutModal.innerHTML = renderOrderConfirmation(result.orderId, customer, confirmedItems);
     } else {
       showToast("Bismillah! Your order details are ready. Please connect the admin backend to send it directly.");
+      closeCheckout();
     }
-    closeCheckout();
   } catch (error) {
     button.disabled = false;
     button.innerHTML = originalText;
@@ -423,13 +432,4 @@ document.addEventListener("keydown", (event) => {
 window.addEventListener("hashchange", () => {
   const productId = location.hash.startsWith("#product/") ? location.hash.slice("#product/".length) : "";
   const product = products.find((item) => item.id === productId);
-  if (product && !productModal.classList.contains("open")) openProduct(product);
-  else if (!productId && productModal.classList.contains("open")) closeProduct();
-});
-
-renderProducts();
-renderCart();
-loadStoreData();
-const initialProductId = location.hash.startsWith("#product/") ? location.hash.slice("#product/".length) : "";
-const initialProduct = products.find((item) => item.id === initialProductId);
-if (initialProduct) openProduct(initialProduct);
+  if (product && !productModal.classList.contain
