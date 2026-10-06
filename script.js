@@ -255,6 +255,35 @@ function renderOrderConfirmation(orderId, customer, items) {
   return `<div class="modal-panel checkout-panel order-confirmation"><button class="modal-close" type="button" aria-label="Close confirmation">×</button><div class="confirmation-mark" aria-hidden="true">✓</div><p class="eyebrow">ORDER CONFIRMED</p><h2>Your order is confirmed.</h2><p class="confirmation-intro">Thank you, ${escapeMarkup(customer.name)}. Your order has been sent to the BuyNexas Hub team.</p><div class="confirmation-reference"><span>Order number</span><strong>${escapeMarkup(orderId)}</strong></div><h3>Order details</h3><div class="confirmation-items">${itemRows}<div class="confirmation-total"><span>Total · Cash on delivery</span><strong>${money(total)}</strong></div></div><div class="confirmation-delivery"><div><span>Phone</span><strong>${escapeMarkup(customer.phone1)}</strong></div><div><span>Delivery address</span><strong>${address}</strong></div>${customer.feedback ? `<div><span>Order note</span><strong>${escapeMarkup(customer.feedback)}</strong></div>` : ""}</div><button class="button button-dark confirmation-close" type="button">Continue shopping</button></div>`;
 }
 
+function getSavedCustomerOrders() {
+  try { return JSON.parse(localStorage.getItem("buyNexasOrders") || "[]"); }
+  catch (error) { return []; }
+}
+
+function saveCustomerOrder(order) {
+  try {
+    const orders = getSavedCustomerOrders().filter((saved) => saved.id !== order.id);
+    orders.unshift(order);
+    localStorage.setItem("buyNexasOrders", JSON.stringify(orders.slice(0, 20)));
+  } catch (error) { showToast("Order is confirmed, but this browser could not save its local order history."); }
+}
+
+function updateSavedOrderStatus(orderId, status) {
+  const orders = getSavedCustomerOrders();
+  const order = orders.find((saved) => saved.id.toLowerCase() === String(orderId).toLowerCase());
+  if (!order) return;
+  order.status = status;
+  try { localStorage.setItem("buyNexasOrders", JSON.stringify(orders)); } catch (error) {}
+  renderSavedCustomerOrders();
+}
+
+function renderSavedCustomerOrders() {
+  const orders = getSavedCustomerOrders();
+  const list = document.querySelector("#my-orders-list");
+  if (!list) return;
+  list.innerHTML = orders.length ? orders.map((order) => `<details class="saved-order"><summary><span><strong>${escapeMarkup(order.id)}</strong><small>${escapeMarkup(new Date(order.createdAt).toLocaleString())} · ${escapeMarkup(order.status)}</small></span><strong>${money(order.total)}</strong></summary><div class="saved-order-details">${order.items.map((item) => `<div class="saved-order-item"><span>${escapeMarkup(item.name)} · ${escapeMarkup(item.variant)} × ${item.quantity}</span><strong>${money(item.price * item.quantity)}</strong></div>`).join("")}<p>Order status: <strong>${escapeMarkup(order.status)}</strong></p></div></details>`).join("") : `<p class="saved-orders-empty">No orders saved on this device yet.</p>`;
+}
+
 function makeWhatsAppMessage(items, customer, orderId = "") {
   const itemText = items.map((item) => `🛍️ Product: ${item.product.name} (${item.variant})\n🔗 Product Link: ${productUrl(item.product)}\n📦 Quantity: ${item.quantity}\n💰 Total: ${money(item.product.price * item.quantity)}`).join("\n\n");
   const grandTotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
@@ -278,12 +307,21 @@ document.querySelector("#tracking-form").addEventListener("submit", async (event
   try {
     const result = await requestStoreData("track", {id:data.get("orderId"),phone:data.get("phone")});
     if (result.error) throw new Error(result.error);
+    updateSavedOrderStatus(result.orderId, result.status);
     resultNode.textContent = `Order ${result.orderId}: ${result.status}${result.city ? ` · ${result.city}` : ""}`;
   } catch (error) {
     resultNode.textContent = error.message;
     resultNode.classList.add("error");
   }
 });
+document.querySelector("#view-my-orders").addEventListener("click", (event) => {
+  const list = document.querySelector("#my-orders-list");
+  const expanded = event.currentTarget.getAttribute("aria-expanded") === "true";
+  event.currentTarget.setAttribute("aria-expanded", String(!expanded));
+  list.classList.toggle("hide", expanded);
+  if (!expanded) renderSavedCustomerOrders();
+});
+renderSavedCustomerOrders();
 overlay.addEventListener("click", () => { closeCart(); closeProduct(); closeCheckout(); });
 document.querySelector(".sort-select").addEventListener("change", renderProducts);
 document.querySelector("#product-search").addEventListener("input", (event) => {
@@ -394,42 +432,4 @@ checkoutModal.addEventListener("click", (event) => {
 });
 checkoutModal.addEventListener("submit", async (event) => {
   if (!event.target.matches(".checkout-form")) return;
-  event.preventDefault();
-  if (!event.target.reportValidity()) return;
-
-  const form = new FormData(event.target);
-  const customer = Object.fromEntries(form.entries());
-  const button = event.target.querySelector(".checkout-submit");
-  const originalText = button.innerHTML;
-
-  button.disabled = true;
-  button.textContent = "Sending order to admin…";
-
-  try {
-    if (GOOGLE_SCRIPT_URL) {
-      const confirmedItems = checkoutItems.map((item) => ({...item}));
-      const orderId = `BN-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-      const result = await postStoreData("placeOrder", {orderId,customer,items:confirmedItems.map((item) => ({productId:item.product.id,variant:item.variant,quantity:item.quantity}))});
-      cart.clear();
-      renderCart();
-      checkoutModal.innerHTML = renderOrderConfirmation(result.orderId, customer, confirmedItems);
-    } else {
-      showToast("Bismillah! Your order details are ready. Please connect the admin backend to send it directly.");
-      closeCheckout();
-    }
-  } catch (error) {
-    button.disabled = false;
-    button.innerHTML = originalText;
-    showToast(error.message);
-    return;
-  } finally {
-    button.disabled = false;
-    button.innerHTML = originalText;
-  }
-});
-document.querySelector(".menu-toggle").addEventListener("click", (event) => {
-  const button = event.currentTarget;
-  const nav = document.querySelector(".main-nav");
-  const open = nav.classList.toggle("open");
-  button.setAttribute("aria-expanded", String(open));
-});
+  e
