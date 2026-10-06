@@ -68,5 +68,23 @@
 .review-form .review-wide{grid-column:1/-1}
 .review-form .button{width:max-content}
 .review-message{grid-column:1/-1;min-height:14px;margin:0;color:var(--green);font-size:10px}
+.order-confirmation{max-height:min(90vh,900px);overflow:auto}
+.confirmation-mark{width:46px;height:46px;margin-bottom:17px;display:grid;place-items:center;border-radius:50%;background:#e4eadf;color:var(--green);font-size:24px}
+.order-confirmation>.eyebrow{margin:0 0 9px;color:var(--green);font-size:9px;font-weight:700;letter-spacing:.15em}
+.order-confirmation h2{margin:0;font:500 34px/1.15 var(--serif);color:var(--ink)}
+.confirmation-intro{margin:10px 0 22px;color:var(--muted);font-size:12px;line-height:1.7}
+.confirmation-reference{display:flex;justify-content:space-between;gap:16px;padding:13px 15px;margin-bottom:22px;background:#eeece5;font-size:11px}
+.confirmation-reference span,.confirmation-delivery span{color:var(--muted)}
+.confirmation-reference strong{overflow-wrap:anywhere;color:var(--green)}
+.order-confirmation h3{margin:0 0 10px;font:500 18px var(--serif)}
+.confirmation-items{border-top:1px solid var(--line)}
+.confirmation-item,.confirmation-total{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);font-size:11px;line-height:1.6}
+.confirmation-item span{overflow-wrap:anywhere}
+.confirmation-item strong,.confirmation-total strong{white-space:nowrap}
+.confirmation-total{font-weight:700}
+.confirmation-delivery{display:grid;gap:12px;padding:17px 0 21px}
+.confirmation-delivery div{display:grid;gap:4px;font-size:11px}
+.confirmation-delivery strong{font-weight:600;line-height:1.6;overflow-wrap:anywhere}
+.confirmation-close{width:100%;min-height:48px}
 @media(max-width:760px){.brand-name{font-size:15px}.site-header .brand-name{font-size:16px}.product-actions{gap:6px;margin-top:11px}.product-actions button{height:37px;padding:0 5px;font-size:7px;letter-spacing:.07em}}
 @media(max-width:760px){.shop-tools{display:flex;align-items:stretch;gap:12px}.product-search{order:0;width:100%;flex:none}.filter-tabs{order:1}.sort-select{order:2}.help-section{padding:60px 22px}.help-inner{grid-template-columns:1fr;gap:30px}.help-heading h2{font-size:38px}.faq-list summary{font-size:16px;padding:15px 34px 15px 0}.newsletter{grid-template-columns:1fr;gap:16px}.newsletter>div,.newsletter>.button,.tracking-form{grid-column:1;grid-row:auto}.tracking-form{grid-template-columns:1fr 1fr}.tracking-form label{grid-column:auto}.tracking-form .button{grid-column:1/-1}.review-section{padding:22px}.review-form{grid-template-columns:1fr}.review-form h4,.review-form .review-wide,.review-message{grid-column:1}.tracking-form label:nth-of-type(2){grid-column:1/-1}}
