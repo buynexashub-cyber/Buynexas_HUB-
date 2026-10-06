@@ -270,10 +270,19 @@ function saveCustomerOrder(order) {
 
 function updateSavedOrderStatus(orderId, status) {
   const orders = getSavedCustomerOrders();
-  const order = orders.find((saved) => saved.id.toLowerCase() === String(orderId).toLowerCase());
+  const order = orders.find((saved) => String(saved.id || "").toLowerCase() === String(orderId).toLowerCase());
   if (!order) return;
   order.status = status;
   try { localStorage.setItem("buyNexasOrders", JSON.stringify(orders)); } catch (error) {}
+  renderSavedCustomerOrders();
+}
+
+function saveTrackedCustomerOrder(order) {
+  if (!Array.isArray(order.items) || !order.items.length) {
+    updateSavedOrderStatus(order.orderId, order.status);
+    return;
+  }
+  saveCustomerOrder({id:order.orderId,createdAt:order.createdAt || new Date().toISOString(),status:order.status,total:Number(order.total) || 0,items:order.items.map((item) => ({name:item.name,variant:item.variant,quantity:item.quantity,price:Number(item.price) || 0,image:item.image || ""}))});
   renderSavedCustomerOrders();
 }
 
@@ -281,7 +290,15 @@ function renderSavedCustomerOrders() {
   const orders = getSavedCustomerOrders();
   const list = document.querySelector("#my-orders-list");
   if (!list) return;
-  list.innerHTML = orders.length ? orders.map((order) => `<details class="saved-order"><summary><span><strong>${escapeMarkup(order.id)}</strong><small>${escapeMarkup(new Date(order.createdAt).toLocaleString())} · ${escapeMarkup(order.status)}</small></span><strong>${money(order.total)}</strong></summary><div class="saved-order-details">${order.items.map((item) => `<div class="saved-order-item"><span>${escapeMarkup(item.name)} · ${escapeMarkup(item.variant)} × ${item.quantity}</span><strong>${money(item.price * item.quantity)}</strong></div>`).join("")}<p>Order status: <strong>${escapeMarkup(order.status)}</strong></p></div></details>`).join("") : `<p class="saved-orders-empty">No orders saved on this device yet.</p>`;
+  list.innerHTML = orders.length ? orders.map((order) => {
+    const items = Array.isArray(order.items) ? order.items.map((item) => {
+      const product = item.product || item;
+      return {name:product.name || item.name || item.productName || "Product details unavailable",variant:item.variant || product.variant || "Standard",quantity:Number(item.quantity) || 1,price:Number(product.price ?? item.price) || 0,image:product.image || item.image || ""};
+    }) : [];
+    const total = Number(order.total) || items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const date = order.createdAt && !Number.isNaN(Date.parse(order.createdAt)) ? new Date(order.createdAt).toLocaleString() : "Date unavailable";
+    return `<article class="saved-order"><div class="saved-order-head"><div class="saved-order-meta"><strong>${escapeMarkup(order.id || "Order")}</strong><span>${escapeMarkup(date)}</span></div><span class="saved-order-status">${escapeMarkup(order.status || "Confirmed")}</span><strong class="saved-order-total">${money(total)}</strong></div><div class="saved-order-items">${items.length ? items.map((item) => `<div class="saved-order-item">${/^https?:\/\//i.test(item.image) ? `<img src="${escapeMarkup(item.image)}" alt="">` : ""}<span><strong>${escapeMarkup(item.name)}</strong><small>${escapeMarkup(item.variant)} · Qty ${item.quantity}</small></span><strong>${money(item.price * item.quantity)}</strong></div>`).join("") : `<p class="saved-orders-empty">Product details are unavailable for this saved order.</p>`}</div></article>`;
+  }).join("") : `<p class="saved-orders-empty">No orders saved on this device yet. Orders placed on another device will not appear here.</p>`;
 }
 
 function makeWhatsAppMessage(items, customer, orderId = "") {
@@ -307,7 +324,7 @@ document.querySelector("#tracking-form").addEventListener("submit", async (event
   try {
     const result = await requestStoreData("track", {id:data.get("orderId"),phone:data.get("phone")});
     if (result.error) throw new Error(result.error);
-    updateSavedOrderStatus(result.orderId, result.status);
+    saveTrackedCustomerOrder(result);
     resultNode.textContent = `Order ${result.orderId}: ${result.status}${result.city ? ` · ${result.city}` : ""}`;
   } catch (error) {
     resultNode.textContent = error.message;
@@ -415,21 +432,4 @@ productModal.addEventListener("submit", async (event) => {
       data.imageData = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(photo); });
     }
     data.productId = form.dataset.reviewProduct;
-    const result = await postStoreData("submitReview", data);
-    message.textContent = result.message;
-    form.reset();
-  } catch (error) { message.textContent = error.message; }
-  finally { submit.disabled = false; }
-});
-checkoutModal.addEventListener("click", (event) => {
-  if (event.target.closest(".modal-close")) closeCheckout();
-  if (event.target.closest(".confirmation-close")) closeCheckout();
-  if (event.target.closest(".checkout-support")) {
-    const supportText = encodeURIComponent("Assalam o Alaikum BuyNexas Hub, I need help with my order and want to confirm my details.");
-    const supportUrl = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, "")}?text=${supportText}`;
-    window.open(supportUrl, "_blank", "noopener,noreferrer");
-  }
-});
-checkoutModal.addEventListener("submit", async (event) => {
-  if (!event.target.matches(".checkout-form")) return;
-  e
+   
