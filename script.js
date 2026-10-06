@@ -59,6 +59,7 @@ function postStoreData(action, payload) {
   return new Promise((resolve, reject) => {
     const frame = document.querySelector(".backend-frame");
     const form = document.createElement("form");
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const timeout = setTimeout(() => finish(new Error("The store service did not respond.")), 25000);
     function finish(error, result) {
       clearTimeout(timeout);
@@ -69,14 +70,14 @@ function postStoreData(action, payload) {
       else resolve(result);
     }
     function onMessage(event) {
-      if (event.source !== frame.contentWindow) return;
+      if (event.data?.requestId !== requestId) return;
       finish(null, event.data);
     }
     window.addEventListener("message", onMessage);
     form.method = "post";
     form.action = GOOGLE_SCRIPT_URL;
     form.target = frame.name;
-    for (const [name, value] of Object.entries({action, payload:JSON.stringify(payload)})) {
+    for (const [name, value] of Object.entries({action, payload:JSON.stringify(payload), requestId})) {
       const input = document.createElement("input");
       input.type = "hidden";
       input.name = name;
