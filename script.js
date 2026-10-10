@@ -255,6 +255,24 @@ function renderOrderConfirmation(orderId, customer, items) {
   return `<div class="modal-panel checkout-panel order-confirmation"><button class="modal-close" type="button" aria-label="Close confirmation">×</button><div class="confirmation-mark" aria-hidden="true">✓</div><p class="eyebrow">ORDER CONFIRMED</p><h2>Your order is confirmed.</h2><p class="confirmation-intro">Thank you, ${escapeMarkup(customer.name)}. Your order has been sent to the BuyNexas Hub team.</p><div class="confirmation-reference"><span>Order number</span><strong>${escapeMarkup(orderId)}</strong></div><h3>Order details</h3><div class="confirmation-items">${itemRows}<div class="confirmation-total"><span>Total · Cash on delivery</span><strong>${money(total)}</strong></div></div><div class="confirmation-delivery"><div><span>Phone</span><strong>${escapeMarkup(customer.phone1)}</strong></div><div><span>Delivery address</span><strong>${address}</strong></div>${customer.feedback ? `<div><span>Order note</span><strong>${escapeMarkup(customer.feedback)}</strong></div>` : ""}</div><button class="button button-dark confirmation-close" type="button">Continue shopping</button></div>`;
 }
 
+function normalizeSavedOrderItem(item) {
+  const source = item && typeof item === "object" ? item : {};
+  const product = source.product && typeof source.product === "object" ? source.product : {};
+  const name = String(source.name || product.name || source.productName || product.productName || "Product details unavailable").trim() || "Product details unavailable";
+  const variant = String(source.variant || product.variant || source.option || product.option || "Standard").trim() || "Standard";
+  const quantity = Number(source.quantity ?? product.quantity ?? 1);
+  const price = Number(source.price ?? product.price ?? 0);
+  const image = String(source.image || product.image || "").trim();
+
+  return {
+    name,
+    variant,
+    quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+    price: Number.isFinite(price) ? price : 0,
+    image
+  };
+}
+
 function getSavedCustomerOrders() {
   try { return JSON.parse(localStorage.getItem("buyNexasOrders") || "[]"); }
   catch (error) { return []; }
@@ -262,8 +280,16 @@ function getSavedCustomerOrders() {
 
 function saveCustomerOrder(order) {
   try {
-    const orders = getSavedCustomerOrders().filter((saved) => saved.id !== order.id);
-    orders.unshift(order);
+    const safeOrder = {
+      ...order,
+      id: String(order.id || "Order"),
+      status: String(order.status || "Confirmed"),
+      total: Number(order.total) || 0,
+      createdAt: order.createdAt || new Date().toISOString(),
+      items: Array.isArray(order.items) ? order.items.map((item) => normalizeSavedOrderItem(item)) : []
+    };
+    const orders = getSavedCustomerOrders().filter((saved) => String(saved.id || "") !== String(safeOrder.id));
+    orders.unshift(safeOrder);
     localStorage.setItem("buyNexasOrders", JSON.stringify(orders.slice(0, 20)));
   } catch (error) { showToast("Order is confirmed, but this browser could not save its local order history."); }
 }
@@ -282,7 +308,7 @@ function saveTrackedCustomerOrder(order) {
     updateSavedOrderStatus(order.orderId, order.status);
     return;
   }
-  saveCustomerOrder({id:order.orderId,createdAt:order.createdAt || new Date().toISOString(),status:order.status,total:Number(order.total) || 0,items:order.items.map((item) => ({name:item.name,variant:item.variant,quantity:item.quantity,price:Number(item.price) || 0,image:item.image || ""}))});
+  saveCustomerOrder({id:order.orderId,createdAt:order.createdAt || new Date().toISOString(),status:order.status,total:Number(order.total) || 0,items:order.items.map((item) => normalizeSavedOrderItem(item))});
   renderSavedCustomerOrders();
 }
 
@@ -291,10 +317,7 @@ function renderSavedCustomerOrders() {
   const list = document.querySelector("#my-orders-list");
   if (!list) return;
   list.innerHTML = orders.length ? orders.map((order) => {
-    const items = Array.isArray(order.items) ? order.items.map((item) => {
-      const product = item.product || item;
-      return {name:product.name || item.name || item.productName || "Product details unavailable",variant:item.variant || product.variant || "Standard",quantity:Number(item.quantity) || 1,price:Number(product.price ?? item.price) || 0,image:product.image || item.image || ""};
-    }) : [];
+    const items = Array.isArray(order.items) ? order.items.map((item) => normalizeSavedOrderItem(item)) : [];
     const total = Number(order.total) || items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const date = order.createdAt && !Number.isNaN(Date.parse(order.createdAt)) ? new Date(order.createdAt).toLocaleString() : "Date unavailable";
     return `<article class="saved-order"><div class="saved-order-head"><div class="saved-order-meta"><strong>${escapeMarkup(order.id || "Order")}</strong><span>${escapeMarkup(date)}</span></div><span class="saved-order-status">${escapeMarkup(order.status || "Confirmed")}</span><strong class="saved-order-total">${money(total)}</strong></div><div class="saved-order-items">${items.length ? items.map((item) => `<div class="saved-order-item">${/^https?:\/\//i.test(item.image) ? `<img src="${escapeMarkup(item.image)}" alt="">` : ""}<span><strong>${escapeMarkup(item.name)}</strong><small>${escapeMarkup(item.variant)} · Qty ${item.quantity}</small></span><strong>${money(item.price * item.quantity)}</strong></div>`).join("") : `<p class="saved-orders-empty">Product details are unavailable for this saved order.</p>`}</div></article>`;
@@ -409,27 +432,4 @@ productModal.addEventListener("click", (event) => {
   const quantityButton = event.target.closest("[data-modal-qty]");
   if (quantityButton) {
     activeQuantity = Math.min(activeProduct.stock, Math.max(1, activeQuantity + Number(quantityButton.dataset.modalQty)));
-    productModal.querySelector(".modal-quantity-value").textContent = activeQuantity;
-  }
-  if (event.target.closest(".add-modal-cart")) addToCart(activeProduct, activeQuantity, activeVariant);
-  if (event.target.closest(".order-now")) openCheckout([{product:activeProduct,variant:activeVariant,quantity:activeQuantity}]);
-});
-productModal.addEventListener("submit", async (event) => {
-  const form = event.target.closest(".review-form");
-  if (!form) return;
-  event.preventDefault();
-  const message = form.querySelector(".review-message");
-  if (!GOOGLE_SCRIPT_URL) { message.textContent = "Reviews will be available after the store backend is connected."; return; }
-  const submit = form.querySelector("button[type=submit]");
-  submit.disabled = true;
-  message.textContent = "Submitting review…";
-  try {
-    const data = Object.fromEntries(new FormData(form).entries());
-    const photo = form.elements.photo.files[0];
-    delete data.photo;
-    if (photo) {
-      if (photo.size > 2 * 1024 * 1024) throw new Error("Review photo must be under 2 MB.");
-      data.imageData = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(photo); });
-    }
-    data.productId = form.dataset.reviewProduct;
    
